@@ -1,5 +1,6 @@
 help: Operating System Base Layer
 description: >
   System base layer
-  (CentOS 6.8 with salt-minion)
+  (Phusion Ubuntu 14.04 with Salt, build-essential,
+  various debugging tools)
 

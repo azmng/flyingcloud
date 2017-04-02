@@ -1,10 +1,11 @@
 nginx:
   pkg:
+    - name: nginx-full
     - latest
   service.running:
     - enable: True
 
-/etc/nginx/conf.d/my_vhost.conf:
+/etc/nginx/sites-enabled/my_vhost.conf:
   file.managed:
     - source: salt://files/my_vhost_conf.jinja
     - template: jinja

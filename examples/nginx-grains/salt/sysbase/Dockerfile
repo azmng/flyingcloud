@@ -1,15 +1,21 @@
-FROM centos:centos6
+# FlyingCloud base image - phusion/baseimage + SaltStack
+# Note: never use :latest, always use a numbered release tag.
+FROM phusion/baseimage:0.9.18
+MAINTAINER MetaBrite, Inc.
 
-CMD ["/bin/bash"]
+# Use baseimage-docker's init system.
+CMD ["/sbin/my_init"]
 
-# Add EPEL repository
-RUN yum -y install epel-release 
+# After the image is built, we will use salt, mounted via docker run.
 
-# Install salt and deps
-RUN yum -y install salt-minion python2-gnupg cronie
+# Update the sources list
+RUN apt-get update
+
+# Install salt and basic applications
+RUN apt-get install -y tar git vim nano wget net-tools build-essential salt-minion
 
 # SaltStack fail hard if any state fails
 RUN echo "failhard: True" >> /etc/salt/minion
 
-# Clean up YUM when done.
-RUN yum clean all && rm -rf /tmp/* /var/tmp/*
+# Clean up APT when done.
+RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
