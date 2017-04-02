@@ -1,0 +1,8 @@
+app_name: 'nginx-grains'
+description: 'Sample Test app for FlyingCloud with custom Grains support'
+layers:
+  - nginx
+  - sysbase
+grains:
+  - dev
+  - qa

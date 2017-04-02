@@ -30,6 +30,7 @@ def get_layer(app_name, layer_name, layer_data, registry_config):
     container_name = layer_info.get('image_name')
     environment = layer_info.get('environment')
     pillar = layer_info.get('pillar')
+    grains = layer_info.get('grains')
 
     layer = layer_class(
         app_name=app_name,
@@ -42,6 +43,7 @@ def get_layer(app_name, layer_name, layer_data, registry_config):
         registry_config=registry_config,
         environment=environment,
         pillar=pillar,
+        grains=grains,
     )
 
 #   print(layer.__dict__)
@@ -115,6 +117,7 @@ def main():
         instance.check_environment_variables(namespace)
         for layer in layers:
             layer.set_pillar(namespace)
+            layer.set_grains(namespace)
 
         instance = namespace.layer_inst
         instance.do_operation(namespace)
