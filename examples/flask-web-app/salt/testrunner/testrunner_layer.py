@@ -32,7 +32,7 @@ class TestRunner(DockerBuildLayer):
         namespace.logger.info(
             "Running tests: type=%s, environment=%r", test_type, environment)
         container_id = self.docker_create_container(
-            namespace, None, self.source_image_name, environment=environment)
+            namespace, None, None, self.source_image_name, environment=environment)
         self.docker_start(namespace, container_id)
 
         cmd = ["/venv/bin/py.test", "--tb=long", test_dir]
