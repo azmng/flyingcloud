@@ -28,6 +28,7 @@ def get_layer(app_name, layer_name, layer_data, registry_config):
     description = layer_info.get('description')
     exposed_ports = layer_info.get('exposed_ports')
     container_name = layer_info.get('image_name')
+    container_hostname = layer_info.get('hostname')
     environment = layer_info.get('environment')
     pillar = layer_info.get('pillar')
     grains = layer_info.get('grains')
@@ -39,6 +40,7 @@ def get_layer(app_name, layer_name, layer_data, registry_config):
         help=help,
         description=description,
         container_name=container_name,
+        container_hostname=container_hostname,
         exposed_ports=exposed_ports,
         registry_config=registry_config,
         environment=environment,

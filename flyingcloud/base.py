@@ -90,6 +90,7 @@ class DockerBuildLayer(object):
             help,
             description=None,
             container_name=None,
+            container_hostname=None,
             exposed_ports=None,
             registry_config=None,
             source_version_tag="latest",
@@ -99,6 +100,7 @@ class DockerBuildLayer(object):
     ):
         self.app_name = app_name
         self.layer_name = layer_name
+        self.container_hostname = container_hostname
         self.source_image_base_name = source_image_base_name
         self.help = help
         self.description = description
@@ -188,6 +190,7 @@ class DockerBuildLayer(object):
         target_container_name = self.docker_create_container(
             namespace,
             self.container_name,
+            self.container_hostname,
             self.layer_latest_name,
             environment=self.make_environment(namespace.env_vars, self.environment))
         self.docker_start(namespace, target_container_name)
@@ -275,7 +278,7 @@ class DockerBuildLayer(object):
             self.make_expose_ports(namespace)
 
         target_container_name = self.salt_highstate(
-            namespace, self.container_name,
+            namespace, self.container_name, self.container_hostname,
             source_image_name=self.source_image_name,
             result_image_name=self.layer_timestamp_name,
             salt_dir=salt_dir)
@@ -314,6 +317,7 @@ class DockerBuildLayer(object):
             self,
             namespace,
             container_name,
+            container_hostname,
             source_image_name,
             result_image_name,
             salt_dir, timeout=SaltExecTimeout):
@@ -337,7 +341,7 @@ class DockerBuildLayer(object):
             volume_map[self.grains_dir] = "/srv/salt/_grains"
         try:
             target_container_name = self.docker_create_container(
-                namespace, container_name, source_image_name,
+                namespace, container_name, container_hostname, source_image_name,
                 environment=self.make_environment(namespace.env_vars, self.environment),
                 volume_map=volume_map
             )
@@ -502,7 +506,7 @@ class DockerBuildLayer(object):
         return image_id
 
     def docker_create_container(
-            self, namespace, container_name, image_name,
+            self, namespace, container_name, container_hostname, image_name,
             environment=None, detach=True, volume_map=None, **kwargs):
         namespace.logger.info("Creating container '%s' from image %s",
                               container_name, image_name)
@@ -516,6 +520,7 @@ class DockerBuildLayer(object):
         kwargs['environment'] = environment
         kwargs['detach'] = detach
         kwargs['ports'] = self.container_ports(self.exposed_ports)
+        kwargs['hostname'] = container_hostname
         kwargs.update(self.docker_host_config(namespace, volume_map))
         namespace.logger.info("create_container: %r", kwargs)
 
@@ -806,6 +811,7 @@ class DockerBuildLayer(object):
         defaults.setdefault('pillar', None)
         defaults.setdefault('grains_dir', None)
         defaults.setdefault('grains', None)
+	defaults.setdefault('hostname', None)
         defaults.setdefault('logfile', os.path.join(defaults['base_dir'], "flyingcloud.log"))
         defaults.setdefault('docker_tagsfile', os.path.join(defaults['base_dir'], "docker_tags.json"))
         defaults.setdefault('timestamp_format', '%Y-%m-%dt%H%M%Sz')
@@ -877,6 +883,9 @@ class DockerBuildLayer(object):
         parser.add_argument(
             '--grains', '-g', dest='grains', type=str,
             help="Specify custom grains to use for this layer. Default: %(default)r")
+        parser.add_argument(
+            '--hostname', '-n', dest='hostname', type=str,
+            help="Specify hostname to use for this layer. Default: %(default)r")
 
 
         if self.docker_machine_platform():
