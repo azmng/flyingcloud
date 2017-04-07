@@ -1,0 +1,5 @@
+help: Operating System Base Layer
+description: >
+  System base layer
+  (CentOS 6.8 with salt-minion)
+

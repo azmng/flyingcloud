@@ -93,7 +93,9 @@ class DockerBuildLayer(object):
             exposed_ports=None,
             registry_config=None,
             source_version_tag="latest",
-            environment=None
+            environment=None,
+            pillar=None,
+            grains=None,
     ):
         self.app_name = app_name
         self.layer_name = layer_name
@@ -102,6 +104,11 @@ class DockerBuildLayer(object):
         self.description = description
         self.exposed_ports = exposed_ports or []
         self.environment = environment
+        self.pillar = pillar
+        self.grains = grains
+        self.base_dir = None
+        self.pillar_dir = None
+        self.grains_dir = None
 
         config = self.RegistryConfig.copy()
         if registry_config:
@@ -143,6 +150,26 @@ class DockerBuildLayer(object):
     def check_user_is_root(cls):
         if platform.system() == "Linux" and os.geteuid() != 0 :
             raise NotSudoError("You must be root (use sudo)")
+
+    def set_pillar(self, namespace):
+        pillar = namespace.pillar or self.pillar
+        self.base_dir = namespace.base_dir
+        if pillar:
+            self.pillar = pillar
+            pillar_basedir = os.path.join(self.base_dir, 'pillar')
+            self.pillar_dir = os.path.join(pillar_basedir, self.pillar)
+            self.docker_layer_name = "{}_{}".format(self.docker_layer_name, pillar)
+            namespace.logger.info("Using pillar '{}' and setting pillar_dir to '{}'.".format(self.pillar, self.pillar_dir))
+
+    def set_grains(self, namespace):
+        grains = namespace.grains or self.grains
+        self.base_dir = namespace.base_dir
+        if grains:
+            self.grains = grains
+            grains_basedir = os.path.join(self.base_dir, 'grains')
+            self.grains_dir = os.path.join(grains_basedir, self.grains)
+            self.docker_layer_name = "{}_{}".format(self.docker_layer_name, grains)
+            namespace.logger.info("Using custom grains '{}' and setting grains_dir to '{}'.".format(self.grains, self.grains_dir))
 
     def check_environment_variables(self, namespace):
         cfg = self.registry_config
@@ -232,6 +259,7 @@ class DockerBuildLayer(object):
         self.layer_squashed_name = "{}-sq".format(self.layer_timestamp_name)
 
         self.initialize_build(namespace, salt_dir)
+        namespace.logger.info("Building docker layer '{}' with tag '{}'.".format(self.layer_name, self.docker_layer_name))
 
         if (namespace.pull_layer
                 and self.registry_config['pull_layer']
@@ -300,11 +328,19 @@ class DockerBuildLayer(object):
         error, commit = None, True
         target_container_name = None
 
+        volume_map = {
+            salt_dir: "/srv/salt",
+        }
+        if self.pillar_dir:
+            volume_map[self.pillar_dir] = "/srv/pillar"
+        if self.grains_dir:
+            volume_map[self.grains_dir] = "/srv/salt/_grains"
         try:
             target_container_name = self.docker_create_container(
                 namespace, container_name, source_image_name,
                 environment=self.make_environment(namespace.env_vars, self.environment),
-                volume_map={salt_dir: "/srv/salt"})
+                volume_map=volume_map
+            )
 
             self.docker_start(namespace, target_container_name)
 
@@ -766,6 +802,10 @@ class DockerBuildLayer(object):
         defaults = defaults or {}
         defaults.setdefault('base_dir', os.path.abspath(os.path.dirname(__file__)))
         defaults.setdefault('salt_dir', os.path.join(defaults['base_dir'], "salt"))
+        defaults.setdefault('pillar_dir', None)
+        defaults.setdefault('pillar', None)
+        defaults.setdefault('grains_dir', None)
+        defaults.setdefault('grains', None)
         defaults.setdefault('logfile', os.path.join(defaults['base_dir'], "flyingcloud.log"))
         defaults.setdefault('docker_tagsfile', os.path.join(defaults['base_dir'], "docker_tags.json"))
         defaults.setdefault('timestamp_format', '%Y-%m-%dt%H%M%Sz')
@@ -831,6 +871,13 @@ class DockerBuildLayer(object):
         parser.add_argument(
             '--email', '-e',
             help="Email address for Docker registry. Default: %(default)r")
+        parser.add_argument(
+            '--pillar', '-l', dest='pillar', type=str,
+            help="Specify pillar to use for this layer. Default: %(default)r")
+        parser.add_argument(
+            '--grains', '-g', dest='grains', type=str,
+            help="Specify custom grains to use for this layer. Default: %(default)r")
+
 
         if self.docker_machine_platform():
             parser.add_argument(
@@ -898,6 +945,7 @@ class DockerBuildLayer(object):
 
         self.add_additional_configuration(namespace)
 
+        namespace.base_dir = defaults['base_dir']
         return namespace
 
     @classmethod
